@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { analyzeImage } from "@/lib/google-vision";
+import { analyzeImageWithOpenAI } from "@/lib/openai-vision";
 
 export async function POST(request: NextRequest) {
   // Check authentication
@@ -9,7 +10,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { image } = await request.json();
+    const { image, provider = "openai" } = await request.json();
 
     if (!image) {
       return NextResponse.json(
@@ -18,7 +19,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = await analyzeImage(image);
+    let result;
+
+    if (provider === "openai") {
+      result = await analyzeImageWithOpenAI(image);
+    } else {
+      result = await analyzeImage(image);
+    }
 
     return NextResponse.json(result);
   } catch (error) {

@@ -19,6 +19,8 @@ interface OcrResult {
   error?: string;
 }
 
+type ApiProvider = "openai" | "google";
+
 export default function ComparePage() {
   const router = useRouter();
   const [checking, setChecking] = useState(true);
@@ -28,8 +30,15 @@ export default function ComparePage() {
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [usageWarning, setUsageWarning] = useState("");
   const [usageBlocked, setUsageBlocked] = useState(false);
+  const [apiProvider, setApiProvider] = useState<ApiProvider>("openai");
 
   useEffect(() => {
+    // Load saved provider preference
+    const saved = localStorage.getItem("api_provider") as ApiProvider;
+    if (saved === "openai" || saved === "google") {
+      setApiProvider(saved);
+    }
+
     fetch("/api/auth")
       .then((res) => res.json())
       .then((data) => {
@@ -51,6 +60,12 @@ export default function ComparePage() {
       });
   }, [router]);
 
+  const toggleProvider = () => {
+    const newProvider = apiProvider === "openai" ? "google" : "openai";
+    setApiProvider(newProvider);
+    localStorage.setItem("api_provider", newProvider);
+  };
+
   const handleCapture = async (imageData: string) => {
     const usage = canUseOcr();
     if (!usage.allowed) {
@@ -67,7 +82,7 @@ export default function ComparePage() {
       const response = await fetch("/api/ocr", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: imageData }),
+        body: JSON.stringify({ image: imageData, provider: apiProvider }),
       });
 
       const result: OcrResult = await response.json();
@@ -147,6 +162,24 @@ export default function ComparePage() {
             마트 가격 비교
           </h1>
           <div className="flex items-center gap-2">
+            {/* API Toggle */}
+            <button
+              onClick={toggleProvider}
+              className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-full transition-all active:scale-95"
+              style={{
+                background: apiProvider === "openai" ? "rgba(16, 163, 127, 0.1)" : "rgba(66, 133, 244, 0.1)",
+                color: apiProvider === "openai" ? "#10A37F" : "#4285F4"
+              }}
+            >
+              <span
+                className="w-2 h-2 rounded-full"
+                style={{
+                  background: apiProvider === "openai" ? "#10A37F" : "#4285F4"
+                }}
+              />
+              {apiProvider === "openai" ? "GPT-4o" : "Google"}
+            </button>
+            {/* Usage Badge */}
             <div
               className="text-sm font-medium px-3 py-1 rounded-full"
               style={{
@@ -154,7 +187,7 @@ export default function ComparePage() {
                 color: stats.percentage > 80 ? "var(--toss-red)" : "var(--toss-gray-600)"
               }}
             >
-              {stats.remaining}회 남음
+              {stats.remaining}회
             </div>
           </div>
         </div>
@@ -281,7 +314,7 @@ export default function ComparePage() {
                       className="text-sm"
                       style={{ color: "var(--toss-gray-500)" }}
                     >
-                      상품명과 가격을 자동으로 인식해요
+                      {apiProvider === "openai" ? "GPT-4o" : "Google Vision"}가 상품명과 가격을 인식해요
                     </p>
                   </div>
                 </div>
@@ -325,7 +358,7 @@ export default function ComparePage() {
                   className="p-4 text-center text-sm"
                   style={{ color: "var(--toss-gray-500)" }}
                 >
-                  이미지 분석 중...
+                  {apiProvider === "openai" ? "GPT-4o" : "Google Vision"}로 분석 중...
                 </div>
               </div>
             )}
