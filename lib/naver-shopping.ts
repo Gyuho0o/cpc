@@ -1,11 +1,61 @@
 export interface NaverShoppingResult {
   success: boolean;
   lowestPrice?: number;
+  quantity?: number;
+  unitPrice?: number;
   productName?: string;
   productUrl?: string;
   mallName?: string;
   imageUrl?: string;
   error?: string;
+}
+
+// 검색어 정제: 용량, 수량 등 불필요한 정보 제거
+export function simplifyProductName(name: string): string {
+  return name
+    // 용량 패턴 제거: 113G, 500ml, 1.5L 등
+    .replace(/\d+(\.\d+)?\s*(g|kg|ml|l|리터|그램|킬로그램|밀리리터)\b/gi, "")
+    // 수량 패턴 제거: *4, x6, 3개입 등
+    .replace(/[*xX×]\s*\d+/g, "")
+    .replace(/\d+\s*(개입|입|팩|봉|병|캔|ea)/gi, "")
+    // 연속 공백 정리
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// 상품명에서 수량 추출
+export function extractQuantity(name: string): number {
+  // *4, x6, ×3 패턴
+  const multiplyMatch = name.match(/[*xX×]\s*(\d+)/);
+  if (multiplyMatch) {
+    return parseInt(multiplyMatch[1], 10);
+  }
+
+  // 4개입, 6입, 3팩 패턴
+  const packMatch = name.match(/(\d+)\s*(개입|입|팩|봉|병|캔|ea)/i);
+  if (packMatch) {
+    return parseInt(packMatch[1], 10);
+  }
+
+  return 1;
+}
+
+// 네이버 상품명에서 수량 추출 (더 넓은 패턴)
+export function extractQuantityFromNaverTitle(title: string): number {
+  // 4개, 6개입, 3팩 등
+  const packMatch = title.match(/(\d+)\s*(개입|개|입|팩|봉|병|캔|세트|박스)/i);
+  if (packMatch) {
+    const qty = parseInt(packMatch[1], 10);
+    if (qty > 0 && qty <= 100) return qty;
+  }
+
+  // *4, x6 패턴
+  const multiplyMatch = title.match(/[*xX×]\s*(\d+)/);
+  if (multiplyMatch) {
+    return parseInt(multiplyMatch[1], 10);
+  }
+
+  return 1;
 }
 
 export async function searchNaverShopping(
@@ -22,7 +72,8 @@ export async function searchNaverShopping(
   }
 
   try {
-    const encodedQuery = encodeURIComponent(productName);
+    const simplifiedName = simplifyProductName(productName);
+    const encodedQuery = encodeURIComponent(simplifiedName);
     const response = await fetch(
       `https://openapi.naver.com/v1/search/shop.json?query=${encodedQuery}&display=5&sort=asc`,
       {
@@ -53,11 +104,17 @@ export async function searchNaverShopping(
 
     // Get the lowest price item
     const item = data.items[0];
+    const title = item.title.replace(/<[^>]*>/g, ""); // Remove HTML tags
+    const price = parseInt(item.lprice, 10);
+    const quantity = extractQuantityFromNaverTitle(title);
+    const unitPrice = Math.round(price / quantity);
 
     return {
       success: true,
-      lowestPrice: parseInt(item.lprice, 10),
-      productName: item.title.replace(/<[^>]*>/g, ""), // Remove HTML tags
+      lowestPrice: price,
+      quantity,
+      unitPrice,
+      productName: title,
       productUrl: item.link,
       mallName: item.mallName,
       imageUrl: item.image,

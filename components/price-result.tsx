@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { formatPriceComparison } from "@/lib/naver-shopping";
+import { formatPriceComparison, extractQuantity, simplifyProductName } from "@/lib/naver-shopping";
 
 interface ProductInfo {
   name: string;
@@ -12,6 +12,8 @@ interface ProductInfo {
 interface NaverResult {
   success: boolean;
   lowestPrice?: number;
+  quantity?: number;
+  unitPrice?: number;
   productName?: string;
   productUrl?: string;
   mallName?: string;
@@ -203,39 +205,60 @@ export function PriceResult({ products, onReset }: PriceResultProps) {
                     온라인 최저가 검색 중...
                   </span>
                 </div>
-              ) : comparison?.result?.lowestPrice ? (
-                <>
-                  <div className="flex justify-between items-center mb-3">
-                    <div>
-                      <span
-                        className="text-sm"
-                        style={{ color: "var(--toss-gray-500)" }}
+              ) : comparison?.result?.unitPrice ? (
+                (() => {
+                  const martQty = extractQuantity(product.name);
+                  const martUnitPrice = Math.round(product.price / martQty);
+                  const onlineUnitPrice = comparison.result.unitPrice;
+
+                  return (
+                    <>
+                      {/* 단가 비교 */}
+                      <div
+                        className="p-3 rounded-xl mb-3"
+                        style={{ background: "var(--toss-gray-50)" }}
                       >
-                        온라인 최저가
-                      </span>
-                      {comparison.result.mallName && (
-                        <span
-                          className="text-xs ml-1.5 px-1.5 py-0.5 rounded"
-                          style={{
-                            background: "var(--toss-gray-100)",
-                            color: "var(--toss-gray-600)"
-                          }}
+                        <p
+                          className="text-xs mb-2 font-medium"
+                          style={{ color: "var(--toss-gray-500)" }}
                         >
-                          {comparison.result.mallName}
-                        </span>
-                      )}
-                    </div>
-                    <span
-                      className="text-xl font-bold"
-                      style={{ color: "var(--toss-gray-900)" }}
-                    >
-                      {comparison.result.lowestPrice.toLocaleString()}원
-                    </span>
-                  </div>
-                  <PriceDifferenceDisplay
-                    martPrice={product.price}
-                    onlinePrice={comparison.result.lowestPrice}
-                  />
+                          개당 단가 비교
+                        </p>
+                        <div className="flex justify-between items-center">
+                          <div className="text-center flex-1">
+                            <p className="text-xs" style={{ color: "var(--toss-gray-500)" }}>마트</p>
+                            <p className="font-bold" style={{ color: "var(--toss-blue)" }}>
+                              {martUnitPrice.toLocaleString()}원
+                            </p>
+                            {martQty > 1 && (
+                              <p className="text-xs" style={{ color: "var(--toss-gray-400)" }}>
+                                ({martQty}개입)
+                              </p>
+                            )}
+                          </div>
+                          <div
+                            className="text-lg font-bold px-3"
+                            style={{ color: "var(--toss-gray-300)" }}
+                          >
+                            vs
+                          </div>
+                          <div className="text-center flex-1">
+                            <p className="text-xs" style={{ color: "var(--toss-gray-500)" }}>온라인</p>
+                            <p className="font-bold" style={{ color: "var(--toss-gray-900)" }}>
+                              {onlineUnitPrice.toLocaleString()}원
+                            </p>
+                            {comparison.result.quantity && comparison.result.quantity > 1 && (
+                              <p className="text-xs" style={{ color: "var(--toss-gray-400)" }}>
+                                ({comparison.result.quantity}개입)
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <PriceDifferenceDisplay
+                        martPrice={martUnitPrice}
+                        onlinePrice={onlineUnitPrice}
+                      />
                   {comparison.result.productUrl && (
                     <a
                       href={comparison.result.productUrl}
@@ -263,18 +286,50 @@ export function PriceResult({ products, onReset }: PriceResultProps) {
                       상품 보러가기
                     </a>
                   )}
-                </>
+                  <a
+                    href={`https://www.coupang.com/np/search?q=${encodeURIComponent(simplifyProductName(product.name))}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 w-full h-12 mt-2 font-medium rounded-xl transition-all active:scale-98"
+                    style={{
+                      background: "var(--toss-gray-100)",
+                      color: "var(--toss-gray-700)"
+                    }}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                    쿠팡에서 검색
+                  </a>
+                    </>
+                  );
+                })()
               ) : (
-                <div className="text-center py-2">
+                <div className="py-2">
                   <p
-                    className="text-sm"
+                    className="text-sm mb-3 text-center"
                     style={{ color: "var(--toss-gray-500)" }}
                   >
                     {comparison?.result?.error || "온라인 가격을 찾을 수 없어요"}
                   </p>
+                  <a
+                    href={`https://www.coupang.com/np/search?q=${encodeURIComponent(simplifyProductName(product.name))}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 w-full h-12 font-medium rounded-xl transition-all active:scale-98"
+                    style={{
+                      background: "var(--toss-gray-100)",
+                      color: "var(--toss-gray-700)"
+                    }}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                    쿠팡에서 검색
+                  </a>
                   <button
                     onClick={() => comparePrice(product, index)}
-                    className="mt-3 text-sm font-medium px-4 py-2 rounded-lg transition-all active:scale-98"
+                    className="w-full h-12 mt-2 font-medium rounded-xl transition-all active:scale-98"
                     style={{
                       background: "var(--toss-gray-100)",
                       color: "var(--toss-gray-700)"
