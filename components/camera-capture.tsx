@@ -18,24 +18,44 @@ export function CameraCapture({ onCapture, loading }: CameraCaptureProps) {
   const startCamera = useCallback(async () => {
     try {
       setError("");
+
+      // 먼저 권한 확인
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setError("이 브라우저에서는 카메라를 지원하지 않습니다.");
+        return;
+      }
+
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: {
-          facingMode: "environment",
+          facingMode: { ideal: "environment" },
           width: { ideal: 1280 },
           height: { ideal: 720 },
         },
       });
 
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
-        await videoRef.current.play();
-      }
-
       setStream(mediaStream);
       setIsCameraOn(true);
+
+      // 다음 렌더 사이클에서 비디오 연결
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = mediaStream;
+          videoRef.current.play().catch(console.error);
+        }
+      }, 100);
     } catch (err) {
       console.error("Camera error:", err);
-      setError("카메라를 시작할 수 없습니다. 권한을 확인해주세요.");
+      if (err instanceof Error) {
+        if (err.name === "NotAllowedError") {
+          setError("카메라 권한이 거부되었습니다. 설정에서 권한을 허용해주세요.");
+        } else if (err.name === "NotFoundError") {
+          setError("카메라를 찾을 수 없습니다.");
+        } else {
+          setError(`카메라 오류: ${err.message}`);
+        }
+      } else {
+        setError("카메라를 시작할 수 없습니다.");
+      }
     }
   }, []);
 
