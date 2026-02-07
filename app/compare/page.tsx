@@ -330,13 +330,13 @@ export default function ComparePage() {
                       className="font-medium"
                       style={{ color: "var(--toss-gray-800)" }}
                     >
-                      쿠팡 가격 비교
+                      온라인 최저가 비교
                     </p>
                     <p
                       className="text-sm"
                       style={{ color: "var(--toss-gray-500)" }}
                     >
-                      쿠팡보다 저렴한지 바로 확인하세요
+                      온라인보다 저렴한지 바로 확인하세요
                     </p>
                   </div>
                 </div>

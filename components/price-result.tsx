@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { formatPriceDifference, generateCoupangSearchUrl } from "@/lib/coupang";
+import { useState, useEffect } from "react";
+import { formatPriceComparison } from "@/lib/naver-shopping";
 
 interface ProductInfo {
   name: string;
@@ -9,12 +9,13 @@ interface ProductInfo {
   rawPrice: string;
 }
 
-interface CoupangResult {
+interface NaverResult {
   success: boolean;
-  searchUrl: string;
-  price?: number;
+  lowestPrice?: number;
   productName?: string;
   productUrl?: string;
+  mallName?: string;
+  imageUrl?: string;
   error?: string;
 }
 
@@ -26,12 +27,20 @@ interface PriceResultProps {
 interface ComparisonState {
   [key: string]: {
     loading: boolean;
-    result?: CoupangResult;
+    result?: NaverResult;
   };
 }
 
 export function PriceResult({ products, onReset }: PriceResultProps) {
   const [comparisons, setComparisons] = useState<ComparisonState>({});
+
+  // Auto-compare on load
+  useEffect(() => {
+    products.forEach((product, index) => {
+      comparePrice(product, index);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const comparePrice = async (product: ProductInfo, index: number) => {
     const key = `${index}-${product.name}`;
@@ -41,13 +50,13 @@ export function PriceResult({ products, onReset }: PriceResultProps) {
     }));
 
     try {
-      const response = await fetch("/api/coupang", {
+      const response = await fetch("/api/price-compare", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ productName: product.name }),
       });
 
-      const result: CoupangResult = await response.json();
+      const result: NaverResult = await response.json();
 
       setComparisons((prev) => ({
         ...prev,
@@ -60,7 +69,6 @@ export function PriceResult({ products, onReset }: PriceResultProps) {
           loading: false,
           result: {
             success: false,
-            searchUrl: generateCoupangSearchUrl(product.name),
             error: "비교 실패",
           },
         },
@@ -169,106 +177,114 @@ export function PriceResult({ products, onReset }: PriceResultProps) {
             </div>
 
             {/* Comparison Result */}
-            {comparison?.result ? (
-              <div
-                className="p-5 border-t"
-                style={{ borderColor: "var(--toss-gray-100)" }}
-              >
-                {comparison.result.price ? (
-                  <>
-                    <div className="flex justify-between items-center mb-3">
+            <div
+              className="p-5 border-t"
+              style={{ borderColor: "var(--toss-gray-100)" }}
+            >
+              {comparison?.loading ? (
+                <div className="flex items-center justify-center gap-2 py-4">
+                  <svg className="animate-spin h-5 w-5" style={{ color: "var(--toss-blue)" }} viewBox="0 0 24 24">
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                      fill="none"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                    />
+                  </svg>
+                  <span style={{ color: "var(--toss-gray-500)" }}>
+                    온라인 최저가 검색 중...
+                  </span>
+                </div>
+              ) : comparison?.result?.lowestPrice ? (
+                <>
+                  <div className="flex justify-between items-center mb-3">
+                    <div>
                       <span
                         className="text-sm"
                         style={{ color: "var(--toss-gray-500)" }}
                       >
-                        쿠팡 가격
+                        온라인 최저가
                       </span>
-                      <span
-                        className="text-xl font-bold"
-                        style={{ color: "var(--toss-gray-900)" }}
-                      >
-                        {comparison.result.price.toLocaleString()}원
-                      </span>
+                      {comparison.result.mallName && (
+                        <span
+                          className="text-xs ml-1.5 px-1.5 py-0.5 rounded"
+                          style={{
+                            background: "var(--toss-gray-100)",
+                            color: "var(--toss-gray-600)"
+                          }}
+                        >
+                          {comparison.result.mallName}
+                        </span>
+                      )}
                     </div>
-                    <PriceDifferenceDisplay
-                      offlinePrice={product.price}
-                      coupangPrice={comparison.result.price}
-                    />
-                  </>
-                ) : (
-                  <p
-                    className="text-sm mb-3"
-                    style={{ color: "var(--toss-gray-500)" }}
-                  >
-                    {comparison.result.error || "가격을 가져올 수 없습니다"}
-                  </p>
-                )}
-                <a
-                  href={comparison.result.searchUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 w-full h-12 mt-3 font-medium rounded-xl transition-all active:scale-98"
-                  style={{
-                    background: "var(--toss-gray-100)",
-                    color: "var(--toss-gray-700)"
-                  }}
-                >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                    />
-                  </svg>
-                  쿠팡에서 직접 확인
-                </a>
-              </div>
-            ) : (
-              <div
-                className="p-5 border-t"
-                style={{ borderColor: "var(--toss-gray-100)" }}
-              >
-                <button
-                  onClick={() => comparePrice(product, index)}
-                  disabled={comparison?.loading}
-                  className="w-full h-12 font-semibold rounded-xl transition-all active:scale-98 disabled:opacity-50 flex items-center justify-center gap-2"
-                  style={{
-                    background: "var(--toss-blue)",
-                    color: "white"
-                  }}
-                >
-                  {comparison?.loading ? (
-                    <>
-                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                          fill="none"
-                        />
+                    <span
+                      className="text-xl font-bold"
+                      style={{ color: "var(--toss-gray-900)" }}
+                    >
+                      {comparison.result.lowestPrice.toLocaleString()}원
+                    </span>
+                  </div>
+                  <PriceDifferenceDisplay
+                    martPrice={product.price}
+                    onlinePrice={comparison.result.lowestPrice}
+                  />
+                  {comparison.result.productUrl && (
+                    <a
+                      href={comparison.result.productUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-2 w-full h-12 mt-3 font-medium rounded-xl transition-all active:scale-98"
+                      style={{
+                        background: "var(--toss-gray-100)",
+                        color: "var(--toss-gray-700)"
+                      }}
+                    >
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
                         <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
                         />
                       </svg>
-                      비교 중...
-                    </>
-                  ) : (
-                    "쿠팡 가격 비교"
+                      상품 보러가기
+                    </a>
                   )}
-                </button>
-              </div>
-            )}
+                </>
+              ) : (
+                <div className="text-center py-2">
+                  <p
+                    className="text-sm"
+                    style={{ color: "var(--toss-gray-500)" }}
+                  >
+                    {comparison?.result?.error || "온라인 가격을 찾을 수 없어요"}
+                  </p>
+                  <button
+                    onClick={() => comparePrice(product, index)}
+                    className="mt-3 text-sm font-medium px-4 py-2 rounded-lg transition-all active:scale-98"
+                    style={{
+                      background: "var(--toss-gray-100)",
+                      color: "var(--toss-gray-700)"
+                    }}
+                  >
+                    다시 검색
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         );
       })}
@@ -277,13 +293,13 @@ export function PriceResult({ products, onReset }: PriceResultProps) {
 }
 
 function PriceDifferenceDisplay({
-  offlinePrice,
-  coupangPrice,
+  martPrice,
+  onlinePrice,
 }: {
-  offlinePrice: number;
-  coupangPrice: number;
+  martPrice: number;
+  onlinePrice: number;
 }) {
-  const { message, color } = formatPriceDifference(offlinePrice, coupangPrice);
+  const { message, color, percentDiff, isMartCheaper } = formatPriceComparison(martPrice, onlinePrice);
 
   const styles = {
     green: {
@@ -304,10 +320,15 @@ function PriceDifferenceDisplay({
 
   return (
     <div
-      className="p-4 rounded-xl text-center font-bold"
+      className="p-4 rounded-xl text-center"
       style={currentStyle}
     >
-      {message}
+      <p className="font-bold text-lg">{message}</p>
+      {percentDiff > 0 && (
+        <p className="text-sm mt-1 opacity-80">
+          {isMartCheaper ? "마트" : "온라인"}가 {percentDiff}% 저렴
+        </p>
+      )}
     </div>
   );
 }
