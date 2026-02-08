@@ -115,41 +115,46 @@ export function CameraCapture({ onCapture, loading }: CameraCaptureProps) {
       )}
 
       {isCameraOn ? (
-        <div className="space-y-4">
-          <div className="relative rounded-2xl overflow-hidden bg-black">
+        <div className="fixed inset-0 z-50 bg-black flex flex-col">
+          {/* 전체 화면 카메라 뷰 */}
+          <div className="flex-1 relative">
             <video
               ref={videoRef}
               autoPlay
               playsInline
               muted
-              className="w-full h-auto"
+              className="w-full h-full object-cover"
             />
             {/* Camera overlay guide */}
             <div className="absolute inset-0 pointer-events-none">
-              <div className="absolute inset-4 border-2 border-white/30 rounded-xl" />
+              <div className="absolute inset-8 border-2 border-white/40 rounded-2xl" />
+              <div className="absolute top-12 left-0 right-0 text-center">
+                <p className="text-white/80 text-sm font-medium">가격표를 프레임 안에 맞춰주세요</p>
+              </div>
             </div>
           </div>
-          <div className="flex gap-3">
+          {/* 하단 버튼 영역 */}
+          <div className="p-5 pb-8 safe-area-bottom flex gap-3">
             <button
-              onClick={capturePhoto}
-              disabled={loading}
-              className="flex-1 h-14 text-lg font-semibold rounded-2xl transition-all active:scale-98"
+              onClick={stopCamera}
+              className="h-14 px-6 font-semibold rounded-2xl transition-all active:scale-95"
               style={{
-                background: "var(--toss-blue)",
+                background: "rgba(255,255,255,0.2)",
                 color: "white"
               }}
             >
-              촬영하기
+              취소
             </button>
             <button
-              onClick={stopCamera}
-              className="h-14 px-6 font-semibold rounded-2xl transition-all active:scale-98"
+              onClick={capturePhoto}
+              disabled={loading}
+              className="flex-1 h-14 text-lg font-semibold rounded-2xl transition-all active:scale-95"
               style={{
-                background: "var(--toss-gray-100)",
-                color: "var(--toss-gray-700)"
+                background: "white",
+                color: "black"
               }}
             >
-              취소
+              촬영하기
             </button>
           </div>
         </div>
