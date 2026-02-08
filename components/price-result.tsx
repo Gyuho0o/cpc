@@ -262,10 +262,10 @@ export function PriceResult({ products, onReset }: PriceResultProps) {
                       {/* 가격 차이가 너무 크면 경고 표시 */}
                       {onlineUnitPrice < martUnitPrice * 0.5 && (
                         <p
-                          className="text-xs mt-2 text-center"
+                          className="text-xs mt-2 text-center leading-relaxed"
                           style={{ color: "var(--toss-gray-500)" }}
                         >
-                          ⚠️ 온라인 가격은 대량 구매(박스) 기준일 수 있습니다
+                          ⚠️ 음료 등 일부 상품은 온라인에서 박스(12개입, 24개입) 단위로만 판매해서 가격 차이가 클 수 있어요
                         </p>
                       )}
                   {comparison.result.productUrl && (
